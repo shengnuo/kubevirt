@@ -1,0 +1,8 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["metric_exporter.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store/metric-expo",
+    visibility = ["//visibility:public"],
+)

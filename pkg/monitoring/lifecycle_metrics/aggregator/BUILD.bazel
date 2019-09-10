@@ -1,0 +1,11 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["aggregator.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/lifecycle_metrics/aggregator",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-launcher/trace-store/metric-expo:go_default_library",
+    ],
+)

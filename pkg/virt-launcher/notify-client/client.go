@@ -22,6 +22,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
+	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store/metric-expo"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -89,6 +90,35 @@ func newV1Notifier(client notifyv1.NotifyClient, conn *grpc.ClientConn) *Notifie
 		v1client: client,
 		conn:     conn,
 	}
+}
+
+func (n *Notifier) SendLifecycleMetrics(exporter metricexpo.MetricExporter) error {
+	var metricJSON []byte
+	var err error
+
+	metricJSON, err = json.Marshal(exporter)
+	if err != nil {
+		return err
+	}
+	request := notifyv1.LifecycleMetricRequest{
+		MetricJSON: metricJSON,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	response, err := n.v1client.HandleLifecycleMetricEvent(ctx, &request)
+
+	if err != nil {
+		return err
+	} else if response.Success != true {
+		msg := fmt.Sprintf("failed to send lifecycle metrics: %s", response.Message)
+		return fmt.Errorf(msg)
+	} else {
+		log.Log.Infof("%s", response.Message)
+	}
+
+	return nil
+
 }
 
 func (n *Notifier) SendDomainEvent(event watch.Event) error {

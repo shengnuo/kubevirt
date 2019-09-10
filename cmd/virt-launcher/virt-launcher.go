@@ -29,6 +29,8 @@ import (
 	"syscall"
 	"time"
 
+	tracestore "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store"
+
 	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
 
@@ -43,6 +45,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
+
 	"kubevirt.io/kubevirt/pkg/ignition"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -76,6 +79,7 @@ func startCmdServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
 	options *cmdserver.ServerOptions) chan struct{} {
+
 	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
@@ -324,6 +328,9 @@ func main() {
 
 	log.InitializeLogging("virt-launcher")
 
+	traceStore := tracestore.NewTraceStore(*name, *uid, *namespace)
+	traceStore.NewStage("init")
+
 	if !*noFork {
 		exitCode, err := ForkAndMonitor("qemu-system", *ephemeralDiskDir, *containerDiskDir)
 		if err != nil {
@@ -371,6 +378,8 @@ func main() {
 		panic(err)
 	}
 	defer notifier.Close()
+
+	traceStore.UpdateNotifier(notifier)
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration)
 	if err != nil {
@@ -427,6 +436,16 @@ func main() {
 
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {
+		e := traceStore.FinishStage("init")
+		if e != nil {
+			log.Log.Errorf(e.Error())
+		}
+		t, e := traceStore.FinishTime("init")
+		if e != nil {
+			log.Log.Errorf("cannot get finish time, %s", e.Error())
+		}
+		log.Log.Infof("init finish time registered %s", t)
+
 		mon := virtlauncher.NewProcessMonitor(domain.Spec.UUID,
 			gracefulShutdownTriggerFile,
 			*gracePeriodSeconds,

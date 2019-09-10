@@ -54,10 +54,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
-	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
-	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
-	promvm "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus"  // import for prometheus metrics
-	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
+	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"            // import for prometheus metrics
+	_ "kubevirt.io/kubevirt/pkg/monitoring/lifecycle_metrics/prometheus" // import for prometheus metrics
+	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus"         // import for prometheus metrics
+	promvm "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus"          // import for prometheus metrics
+	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus"         // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -344,6 +345,7 @@ func (app *virtHandlerApp) Run() {
 func (app *virtHandlerApp) runPrometheusServer(errCh chan error, certStore certificate.FileStore) {
 	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
 	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
+	// http.Handle("/vmmetrics", promlifecycle.Handler(app.MaxRequestsInFlight))
 	errCh <- http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
 }
 

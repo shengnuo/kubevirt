@@ -15,6 +15,7 @@ go_library(
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
+        "//pkg/virt-launcher/trace-store:go_default_library",
         "//pkg/virt-launcher/virtwrap:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",

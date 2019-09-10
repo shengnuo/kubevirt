@@ -5,6 +5,7 @@ option go_package = "v1";
 
 service Notify {
   rpc HandleDomainEvent(DomainEventRequest) returns (Response) {}
+  rpc HandleLifecycleMetricEvent(LifecycleMetricRequest) returns (Response) {}
   rpc HandleK8sEvent(K8sEventRequest) returns (Response) {}
 }
 
@@ -21,4 +22,8 @@ message K8sEventRequest {
 message Response {
   bool success = 1;
   string message = 2;
+}
+
+message LifecycleMetricRequest {
+  bytes metricJSON = 1;
 }

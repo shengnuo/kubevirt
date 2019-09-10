@@ -36,15 +36,46 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+
+	aggregator "kubevirt.io/kubevirt/pkg/monitoring/lifecycle_metrics/aggregator"
+	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store/metric-expo"
+
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type Notify struct {
-	EventChan chan watch.Event
-	recorder  record.EventRecorder
-	vmiStore  cache.Store
+	EventChan        chan watch.Event
+	recorder         record.EventRecorder
+	vmiStore         cache.Store
+	metricAggregator *aggregator.LifecycleMetricsAggregator
+}
+
+func (n *Notify) HandleLifecycleMetricEvent(ctx context.Context, request *notifyv1.LifecycleMetricRequest) (*notifyv1.Response, error) {
+
+	exporter := &metricexpo.MetricExporter{}
+
+	response := &notifyv1.Response{
+		Success: true,
+	}
+
+	if len(request.MetricJSON) > 0 {
+		err := json.Unmarshal(request.MetricJSON, exporter)
+		if err != nil {
+			log.Log.Errorf("Failed to unmarshal metric json object")
+			response.Success = false
+			response.Message = err.Error()
+			return response, nil
+		}
+		response.Message = fmt.Sprintf("name: %s, ns: %s, stageName: %s, duration: %s", exporter.Name, exporter.Namespace, exporter.StageName, exporter.Duration)
+		log.Log.Infof("%s", response.Message)
+		n.metricAggregator.UpdateAggregator(exporter)
+	} else {
+		log.Log.Errorf("received zero length metric json")
+	}
+	return response, nil
+
 }
 
 func (n *Notify) HandleDomainEvent(ctx context.Context, request *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
@@ -122,9 +153,10 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	notifyServer := &Notify{
-		EventChan: c,
-		recorder:  recorder,
-		vmiStore:  vmiStore,
+		EventChan:        c,
+		recorder:         recorder,
+		vmiStore:         vmiStore,
+		metricAggregator: aggregator.GetAggregator(),
 	}
 	registerInfoServer(grpcServer)
 

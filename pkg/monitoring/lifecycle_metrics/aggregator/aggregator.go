@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	prometheus "kubevirt.io/kubevirt/pkg/monitoring/lifecycle_metrics/prometheus"
 	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store/metric-expo"
 )
 
@@ -68,6 +69,7 @@ func (a *LifecycleMetricsAggregator) UpdateAggregator(exporter *metricexpo.Metri
 		a.summaryAggregators[stage].Observe(exporter)
 		a.addRecord(exporter)
 	}
+	prometheus.Update(exporter)
 }
 
 func (a *LifecycleMetricsAggregator) addRecord(exporter *metricexpo.MetricExporter) {

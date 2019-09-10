@@ -9,7 +9,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virt-launcher/trace-store/metric-expo:go_default_library",
-        "//pkg/monitoring/lifecycle_metrics/aggregator:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

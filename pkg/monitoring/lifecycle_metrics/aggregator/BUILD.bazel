@@ -7,5 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virt-launcher/trace-store/metric-expo:go_default_library",
+        "//pkg/monitoring/lifecycle_metrics/prometheus:go_default_library",
     ],
 )

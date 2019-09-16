@@ -1,8 +1,10 @@
 package tracestore
 
 import (
+	"container/list"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"kubevirt.io/client-go/log"
@@ -11,108 +13,114 @@ import (
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 )
 
-type StageDuration struct {
-	StartTime  time.Time `json:"startTime"`
-	FinishTime time.Time `json:"finishTime"`
+type stageDuration struct {
+	startTime  time.Time
+	finishTime time.Time
 }
 
-func StartStage() *StageDuration {
-	return &StageDuration{
-		StartTime: time.Now(),
+func startStage() *stageDuration {
+	return &stageDuration{
+		startTime: time.Now(),
 	}
 }
 
-func (sd *StageDuration) FinishStage() error {
-	if sd.FinishTime.IsZero() {
-		sd.FinishTime = time.Now()
-		fmt.Println(sd.FinishTime)
+func (sd *stageDuration) finishStage() error {
+	if sd.finishTime.IsZero() {
+		sd.finishTime = time.Now()
+		fmt.Println(sd.finishTime)
 	} else {
 		fmt.Println("finish time already exists")
 	}
 	return nil
 }
 
-func (sd *StageDuration) CalculateDuration() (time.Duration, error) {
-	if sd.StartTime.IsZero() || sd.FinishTime.IsZero() {
-		return 0, errors.New("start time or finish time is zero")
-	}
-
-	return sd.FinishTime.Sub(sd.StartTime), nil
-}
-
-type TraceStore struct {
-	Name           string                    `json:"name"`
-	UID            string                    `json:"uid"`
-	Namespace      string                    `json:"namespace"`
-	StageDurations map[string]*StageDuration `json:"stageDurations"`
+type traceStore struct {
+	lock           sync.RWMutex
+	name           string
+	uid            string
+	namespace      string
+	stageDurations map[string]*stageDuration
+	pendingStages  *list.List
 	notifier       *notifyclient.Notifier
 }
 
-func NewTraceStore(name, uid, namespace string) *TraceStore {
-	return &TraceStore{
-		Name:           name,
-		UID:            uid,
-		Namespace:      namespace,
-		StageDurations: make(map[string]*StageDuration),
-	}
-}
+func (ts *traceStore) newStage(stageName string) error {
+	ts.lock.Lock()
+	defer ts.lock.Unlock()
 
-func (ts *TraceStore) NewStage(stageName string) error {
-	if _, exists := ts.StageDurations[stageName]; exists {
-		return errors.New("stage already exists!")
+	if _, exists := ts.stageDurations[stageName]; !exists {
+		ts.stageDurations[stageName] = startStage()
 	}
-	ts.StageDurations[stageName] = StartStage()
 	return nil
 }
 
-func (ts *TraceStore) reportStage(stageName string) {
-	log.Log.Info("reporting metrics")
-	d, _ := ts.Duration(stageName)
+func (ts *traceStore) reportStage(stageName string) {
+	log.Log.Infof("reporting stage %s", stageName)
+	d, _ := ts.duration(stageName)
+
 	ts.notifier.SendLifecycleMetrics(metricexpo.MetricExporter{
-		Namespace: ts.Namespace,
-		Name:      ts.Name,
+		Namespace: ts.namespace,
+		Name:      ts.name,
 		StageName: stageName,
+		UID:       ts.uid,
 		Duration:  d,
 	})
+	delete(ts.stageDurations, stageName)
 }
 
-func (ts *TraceStore) UpdateNotifier(notifier *notifyclient.Notifier) {
+func (ts *traceStore) updateNotifier(notifier *notifyclient.Notifier) {
+	ts.lock.Lock()
+	defer ts.lock.Unlock()
+
 	ts.notifier = notifier
+
+	for stageName := ts.pendingStages.Front(); stageName != nil; stageName = stageName.Next() {
+		name, _ := stageName.Value.(string)
+		ts.reportStage(name)
+	}
+	ts.pendingStages.Init()
 }
 
-func (ts *TraceStore) FinishStage(stageName string) error {
-	if v, exists := ts.StageDurations[stageName]; exists {
+func (ts *traceStore) finishStage(stageName string) error {
+	ts.lock.Lock()
+	defer ts.lock.Unlock()
 
-		e := v.FinishStage()
+	if v, exists := ts.stageDurations[stageName]; exists {
+
+		e := v.finishStage()
 		if e != nil {
 			return e
 		}
-		ts.reportStage(stageName)
+		if ts.notifier != nil {
+			ts.reportStage(stageName)
+		} else {
+			ts.pendingStages.PushBack(stageName)
+		}
 		return nil
 	}
 	return errors.New("stage does not exist!")
 }
 
-func (ts *TraceStore) StartTime(stageName string) (time.Time, error) {
-	if _, exists := ts.StageDurations[stageName]; !exists {
+func (ts *traceStore) startTime(stageName string) (time.Time, error) {
+	if _, exists := ts.stageDurations[stageName]; !exists {
 		return time.Time{}, errors.New("stage does not exist!")
 	}
-	return ts.StageDurations[stageName].StartTime, nil
+	return ts.stageDurations[stageName].startTime, nil
 }
 
-func (ts *TraceStore) FinishTime(stageName string) (time.Time, error) {
-	if _, exists := ts.StageDurations[stageName]; !exists {
+func (ts *traceStore) finishTime(stageName string) (time.Time, error) {
+	if _, exists := ts.stageDurations[stageName]; !exists {
 		return time.Time{}, errors.New("stage does not exist!")
 	}
-	return ts.StageDurations[stageName].FinishTime, nil
+	return ts.stageDurations[stageName].finishTime, nil
 }
 
-func (ts *TraceStore) Duration(stageName string) (time.Duration, error) {
-	finishTime, e := ts.FinishTime(stageName)
+func (ts *traceStore) duration(stageName string) (time.Duration, error) {
+	finishTime, e := ts.finishTime(stageName)
 	if e != nil {
 		return 0, e
 	}
-	startTime, e := ts.StartTime(stageName)
+	startTime, e := ts.startTime(stageName)
 	if e != nil {
 		return 0, e
 	}
@@ -120,6 +128,27 @@ func (ts *TraceStore) Duration(stageName string) (time.Duration, error) {
 	return finishTime.Sub(startTime), nil
 }
 
-func (ts *TraceStore) GetIdentifier() string {
-	return ts.Namespace + "/" + ts.Name
+var ts *traceStore
+
+func InitTraceStore(namespace string, name string, uid string) {
+	ts = &traceStore{
+		namespace:      namespace,
+		name:           name,
+		uid:            uid,
+		pendingStages:  list.New(),
+		stageDurations: make(map[string]*stageDuration),
+		notifier:       nil,
+	}
+}
+
+func NewStage(stageName string) error {
+	return ts.newStage(stageName)
+}
+
+func FinishStage(stageName string) error {
+	return ts.finishStage(stageName)
+}
+
+func UpdateNotifier(notifier *notifyclient.Notifier) {
+	ts.updateNotifier(notifier)
 }

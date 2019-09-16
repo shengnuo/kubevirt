@@ -57,6 +57,8 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+
+	tracestore "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -725,7 +727,6 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 // The Domain.Spec can be alterned in this function and any changes
 // made to the domain will get set in libvirt after this function exits.
 func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain) (*api.Domain, error) {
-
 	logger := log.Log.Object(vmi)
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
@@ -939,18 +940,28 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// Set defaults which are not coming from the cluster
 	api.SetObjectDefaults_Domain(domain)
 
+	tracestore.NewStage("init/LookupDomainByName")
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
+	tracestore.FinishStage("init/LookupDomainByName")
+
 	newDomain := false
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
 			newDomain = true
+			tracestore.NewStage("init/preStartHook")
 			domain, err = l.preStartHook(vmi, domain)
+			tracestore.FinishStage("init/preStartHook")
+
 			if err != nil {
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err
 			}
+
+			tracestore.NewStage("init/setDomainSpecWithHooks")
 			dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
+			tracestore.FinishStage("init/setDomainSpecWithHooks")
+
 			if err != nil {
 				return nil, err
 			}
@@ -980,7 +991,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
+		tracestore.NewStage("init/dom.Create")
 		err = dom.Create()
+		tracestore.FinishStage("init/dom.Create")
+
 		if err != nil {
 			logger.Reason(err).Error("Starting the VirtualMachineInstance failed.")
 			return nil, err

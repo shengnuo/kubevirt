@@ -25,6 +25,7 @@ import (
 	"encoding/xml"
 	"net"
 	"os"
+	"time"
 
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
@@ -136,6 +137,7 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 
 	log.Log.Info("Successfully updated original domain spec with requested SMBIOS attributes")
 
+	time.Sleep(30 * time.Second)
 	return newDomainXML, nil
 }
 

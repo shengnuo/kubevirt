@@ -345,7 +345,6 @@ func (app *virtHandlerApp) Run() {
 func (app *virtHandlerApp) runPrometheusServer(errCh chan error, certStore certificate.FileStore) {
 	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
 	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
-	// http.Handle("/vmmetrics", promlifecycle.Handler(app.MaxRequestsInFlight))
 	errCh <- http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
 }
 

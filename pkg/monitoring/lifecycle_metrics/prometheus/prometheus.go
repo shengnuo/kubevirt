@@ -26,53 +26,9 @@ var (
 			Name:      "kubevirt_lifecycle_duration_gauge",
 			Help:      "Duration of kubevirt lifecycle stages",
 		},
-		[]string{"namespace", "name", "stage"},
+		[]string{"namespace", "name", "stage", "uid"},
 	)
 )
-
-// type prometheusScraper struct {
-// 	ch chan<- prometheus.Metric
-// }
-
-// func (ps *prometheusScraper) Scrape(
-// 	summaryAggregators map[string]*aggregator.SummaryAggregator,
-// 	newRecord map[string]map[string]map[string]time.Duration) {
-// 	for stage, sumAgg := range summaryAggregators {
-// 		mv, err := prometheus.NewConstSummary(
-// 			durationSummaryDesc,
-// 			sumAgg.GetCount(),
-// 			sumAgg.GetSum(),
-// 			map[float64]float64{0.5: 0.23, 0.99: 0.56},
-// 			stage,
-// 		)
-// 		if err == nil {
-// 			ps.ch <- mv
-// 		} else {
-// 			log.Log.Reason(err).Error("Failed to push duration summary metrics")
-// 		}
-// 	}
-
-// 	for namespace, nsMap := range newRecord {
-// 		for name, nameMap := range nsMap {
-// 			for stage, duration := range nameMap {
-// 				mv, err := prometheus.NewConstMetric(
-// 					durationDesc,
-// 					prometheus.GaugeValue,
-// 					float64(duration),
-// 					namespace,
-// 					name,
-// 					stage,
-// 				)
-// 				if err == nil {
-// 					ps.ch <- mv
-// 				} else {
-// 					log.Log.Reason(err).Error("Failed to push duration metrics")
-// 				}
-// 			}
-// 		}
-// 	}
-
-// }
 
 func Update(exporter *metricexpo.MetricExporter) {
 	log.Log.Info("pushing prometheus metrics")
@@ -89,6 +45,7 @@ func Update(exporter *metricexpo.MetricExporter) {
 			"namespace": exporter.Namespace,
 			"name":      exporter.Name,
 			"stage":     exporter.StageName,
+			"uid":       exporter.UID,
 		},
 	).Add(durationSecond)
 }

@@ -131,7 +131,9 @@ func startDomainEventMonitoring(notifier *notifyclient.Notifier, virtShareDir st
 		}
 	}()
 
+	tracestore.NewStage("init/StartDomainNotifier")
 	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmiUID, qemuAgentPollerInterval)
+	tracestore.FinishStage("init/StartDomainNotifier")
 	if err != nil {
 		panic(err)
 	}
@@ -328,8 +330,8 @@ func main() {
 
 	log.InitializeLogging("virt-launcher")
 
-	traceStore := tracestore.NewTraceStore(*name, *uid, *namespace)
-	traceStore.NewStage("init")
+	tracestore.InitTraceStore(*namespace, *name, *uid)
+	tracestore.NewStage("init")
 
 	if !*noFork {
 		exitCode, err := ForkAndMonitor("qemu-system", *ephemeralDiskDir, *containerDiskDir)
@@ -370,16 +372,22 @@ func main() {
 	}
 	util.StartVirtlog(stopChan)
 
+	tracestore.NewStage("init/createLibvirtConnection")
 	domainConn := createLibvirtConnection()
+	tracestore.FinishStage("init/createLibvirtConnection")
+
 	defer domainConn.Close()
 
+	tracestore.NewStage("init/NewNotifier")
 	notifier, err := notifyclient.NewNotifier(*virtShareDir)
+	tracestore.FinishStage("init/NewNotifier")
+
 	if err != nil {
 		panic(err)
 	}
 	defer notifier.Close()
 
-	traceStore.UpdateNotifier(notifier)
+	tracestore.UpdateNotifier(notifier)
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration)
 	if err != nil {
@@ -389,9 +397,11 @@ func main() {
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
+	tracestore.NewStage("init/cmdServerStart")
 	options := cmdserver.NewServerOptions(*useEmulation)
 	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
 	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
+	tracestore.FinishStage("init/cmdServerStart")
 
 	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
 		*namespace,
@@ -403,6 +413,7 @@ func main() {
 	}
 
 	shutdownCallback := func(pid int) {
+		log.Log.Info("shutdown callback triggered")
 		err := domainManager.KillVMI(vm)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt, falling back to SIGTERM")
@@ -434,17 +445,19 @@ func main() {
 	// managing virtual machines.
 	markReady(*readinessFile)
 
+	tracestore.NewStage("init/waitForDomainUUID")
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
+	tracestore.FinishStage("init/waitForDomainUUID")
 	if domain != nil {
-		e := traceStore.FinishStage("init")
-		if e != nil {
-			log.Log.Errorf(e.Error())
-		}
-		t, e := traceStore.FinishTime("init")
-		if e != nil {
-			log.Log.Errorf("cannot get finish time, %s", e.Error())
-		}
-		log.Log.Infof("init finish time registered %s", t)
+		tracestore.FinishStage("init")
+		// if e != nil {
+		// 	log.Log.Errorf(e.Error())
+		// }
+		// t, e := tracestore.FinishTime("init")
+		// if e != nil {
+		// 	log.Log.Errorf("cannot get finish time, %s", e.Error())
+		// }
+		// log.Log.Infof("init finish time registered %s", t)
 
 		mon := virtlauncher.NewProcessMonitor(domain.Spec.UUID,
 			gracefulShutdownTriggerFile,

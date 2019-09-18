@@ -332,6 +332,7 @@ func main() {
 
 	tracestore.InitTraceStore(*namespace, *name, *uid)
 	tracestore.NewStage("init")
+	defer tracestore.FinishStage("shutdown")
 
 	if !*noFork {
 		exitCode, err := ForkAndMonitor("qemu-system", *ephemeralDiskDir, *containerDiskDir)
@@ -436,6 +437,7 @@ func main() {
 	signalStopChan := make(chan struct{})
 	go func() {
 		s := <-c
+		tracestore.NewStage("shutdown")
 		log.Log.Infof("Received signal %s", s.String())
 		close(signalStopChan)
 	}()
@@ -450,14 +452,6 @@ func main() {
 	tracestore.FinishStage("init/waitForDomainUUID")
 	if domain != nil {
 		tracestore.FinishStage("init")
-		// if e != nil {
-		// 	log.Log.Errorf(e.Error())
-		// }
-		// t, e := tracestore.FinishTime("init")
-		// if e != nil {
-		// 	log.Log.Errorf("cannot get finish time, %s", e.Error())
-		// }
-		// log.Log.Infof("init finish time registered %s", t)
 
 		mon := virtlauncher.NewProcessMonitor(domain.Spec.UUID,
 			gracefulShutdownTriggerFile,

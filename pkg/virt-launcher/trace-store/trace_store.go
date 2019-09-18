@@ -3,33 +3,31 @@ package tracestore
 import (
 	"container/list"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
 	"kubevirt.io/client-go/log"
 	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store/metric-expo"
-
-	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 )
+
+type notifier interface {
+	SendLifecycleMetrics(exporter metricexpo.MetricExporter) error
+}
 
 type stageDuration struct {
 	startTime  time.Time
 	finishTime time.Time
 }
 
-func startStage() *stageDuration {
+func startStage(startTime time.Time) *stageDuration {
 	return &stageDuration{
-		startTime: time.Now(),
+		startTime: startTime,
 	}
 }
 
-func (sd *stageDuration) finishStage() error {
+func (sd *stageDuration) finishStage(finishTime time.Time) error {
 	if sd.finishTime.IsZero() {
-		sd.finishTime = time.Now()
-		fmt.Println(sd.finishTime)
-	} else {
-		fmt.Println("finish time already exists")
+		sd.finishTime = finishTime
 	}
 	return nil
 }
@@ -41,15 +39,16 @@ type traceStore struct {
 	namespace      string
 	stageDurations map[string]*stageDuration
 	pendingStages  *list.List
-	notifier       *notifyclient.Notifier
+	myNotifier     notifier
 }
 
 func (ts *traceStore) newStage(stageName string) error {
+	startTime := time.Now()
 	ts.lock.Lock()
 	defer ts.lock.Unlock()
 
 	if _, exists := ts.stageDurations[stageName]; !exists {
-		ts.stageDurations[stageName] = startStage()
+		ts.stageDurations[stageName] = startStage(startTime)
 	}
 	return nil
 }
@@ -58,7 +57,7 @@ func (ts *traceStore) reportStage(stageName string) {
 	log.Log.Infof("reporting stage %s", stageName)
 	d, _ := ts.duration(stageName)
 
-	ts.notifier.SendLifecycleMetrics(metricexpo.MetricExporter{
+	ts.myNotifier.SendLifecycleMetrics(metricexpo.MetricExporter{
 		Namespace: ts.namespace,
 		Name:      ts.name,
 		StageName: stageName,
@@ -68,11 +67,11 @@ func (ts *traceStore) reportStage(stageName string) {
 	delete(ts.stageDurations, stageName)
 }
 
-func (ts *traceStore) updateNotifier(notifier *notifyclient.Notifier) {
+func (ts *traceStore) updateNotifier(myNotifier notifier) {
 	ts.lock.Lock()
 	defer ts.lock.Unlock()
 
-	ts.notifier = notifier
+	ts.myNotifier = myNotifier
 
 	for stageName := ts.pendingStages.Front(); stageName != nil; stageName = stageName.Next() {
 		name, _ := stageName.Value.(string)
@@ -82,16 +81,18 @@ func (ts *traceStore) updateNotifier(notifier *notifyclient.Notifier) {
 }
 
 func (ts *traceStore) finishStage(stageName string) error {
+	finishTime := time.Now()
+
 	ts.lock.Lock()
 	defer ts.lock.Unlock()
 
 	if v, exists := ts.stageDurations[stageName]; exists {
 
-		e := v.finishStage()
+		e := v.finishStage(finishTime)
 		if e != nil {
 			return e
 		}
-		if ts.notifier != nil {
+		if ts.myNotifier != nil {
 			ts.reportStage(stageName)
 		} else {
 			ts.pendingStages.PushBack(stageName)
@@ -129,16 +130,20 @@ func (ts *traceStore) duration(stageName string) (time.Duration, error) {
 }
 
 var ts *traceStore
+var once sync.Once
+var shutdownDuration string
 
 func InitTraceStore(namespace string, name string, uid string) {
-	ts = &traceStore{
-		namespace:      namespace,
-		name:           name,
-		uid:            uid,
-		pendingStages:  list.New(),
-		stageDurations: make(map[string]*stageDuration),
-		notifier:       nil,
-	}
+	once.Do(func() {
+		ts = &traceStore{
+			namespace:      namespace,
+			name:           name,
+			uid:            uid,
+			pendingStages:  list.New(),
+			stageDurations: make(map[string]*stageDuration),
+			myNotifier:     nil,
+		}
+	})
 }
 
 func NewStage(stageName string) error {
@@ -149,6 +154,6 @@ func FinishStage(stageName string) error {
 	return ts.finishStage(stageName)
 }
 
-func UpdateNotifier(notifier *notifyclient.Notifier) {
-	ts.updateNotifier(notifier)
+func UpdateNotifier(myNotifier notifier) {
+	ts.updateNotifier(myNotifier)
 }

@@ -40,6 +40,7 @@ func Update(exporter *metricexpo.MetricExporter) {
 		},
 	).Observe(durationSecond)
 
+	// durationGauge._metrics.clear()
 	durationGauge.With(
 		prometheus.Labels{
 			"namespace": exporter.Namespace,

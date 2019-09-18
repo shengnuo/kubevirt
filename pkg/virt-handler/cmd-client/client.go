@@ -336,6 +336,10 @@ func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) 
 		}
 		exists = true
 	}
+
+	if response.Response.Message != "" {
+		log.Log.Infof("shutdown duration %s\n", response.Response.Message)
+	}
 	return stats, exists, nil
 }
 

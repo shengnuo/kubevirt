@@ -1094,7 +1094,10 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 		}
 
 		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
+			tracestore.NewStage("shutdown/ShutdownFlags")
 			err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
+			tracestore.FinishStage("shutdown/ShutdownFlags")
+
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
 				return err
@@ -1168,7 +1171,10 @@ func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer dom.Free()
 
+	tracestore.NewStage("shutdown/dom.UndefineFlags")
 	err = dom.UndefineFlags(libvirt.DOMAIN_UNDEFINE_NVRAM)
+	tracestore.FinishStage("shutdown/dom.UndefineFlags")
+
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Undefining the domain failed.")
 		return err

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"time"
 
+	tracestore "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store"
+
 	"github.com/libvirt/libvirt-go"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -113,8 +115,6 @@ func (n *Notifier) SendLifecycleMetrics(exporter metricexpo.MetricExporter) erro
 	} else if response.Success != true {
 		msg := fmt.Sprintf("failed to send lifecycle metrics: %s", response.Message)
 		return fmt.Errorf(msg)
-	} else {
-		log.Log.Infof("%s", response.Message)
 	}
 
 	return nil
@@ -122,7 +122,6 @@ func (n *Notifier) SendLifecycleMetrics(exporter metricexpo.MetricExporter) erro
 }
 
 func (n *Notifier) SendDomainEvent(event watch.Event) error {
-
 	var domainJSON []byte
 	var statusJSON []byte
 	var err error
@@ -165,6 +164,10 @@ func newWatchEventError(err error) watch.Event {
 }
 
 func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event, interfaceStatus *[]api.InterfaceStatus) {
+
+	tracestore.NewStage("eventCallback")
+	defer tracestore.FinishStage("eventCallback")
+
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {

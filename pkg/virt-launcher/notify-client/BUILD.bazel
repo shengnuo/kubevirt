@@ -13,6 +13,7 @@ go_library(
         "//pkg/virt-launcher/trace-store/metric-expo:go_default_library",
         "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/trace-store:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/errors:go_default_library",
         "//pkg/virt-launcher/virtwrap/util:go_default_library",

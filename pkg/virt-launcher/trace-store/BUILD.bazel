@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/virt-launcher/notify-client:go_default_library",
         "//pkg/virt-launcher/trace-store/metric-expo:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
     ],

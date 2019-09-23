@@ -2,11 +2,15 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["metric_store.go"],
+    srcs = [
+        "generated_mock_metric_store.go",
+        "metric_store.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virt-launcher/metric-store/metric-expo:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
     ],
 )
 
@@ -18,6 +22,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/virt-launcher/metric-store/metric-expo:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
     ],

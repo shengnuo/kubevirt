@@ -20,6 +20,7 @@
 package cmdserver
 
 import (
+	metricstore "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -70,6 +71,7 @@ var _ = Describe("Virt remote commands", func() {
 		RunServer(socketPath, domainManager, stop, options)
 		client, err = cmdclient.NewClient(socketPath)
 		Expect(err).ToNot(HaveOccurred())
+		metricstore.InitMetricStore("foo", "bar", "uid")
 	})
 
 	AfterEach(func() {

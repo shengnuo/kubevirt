@@ -27,6 +27,9 @@ import (
 	"reflect"
 	"time"
 
+	metricstore "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store"
+	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store/metric-expo"
+
 	"github.com/golang/mock/gomock"
 	"github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
@@ -62,6 +65,7 @@ var _ = Describe("Notify", func() {
 		var ctrl *gomock.Controller
 
 		BeforeEach(func() {
+			metricstore.InitMetricStore("foo", "bar", "uid")
 			ctrl = gomock.NewController(GinkgoT())
 			mockCon = cli.NewMockConnection(ctrl)
 			mockDomain = cli.NewMockVirDomain(ctrl)
@@ -249,6 +253,20 @@ var _ = Describe("Notify", func() {
 
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
+			close(done)
+		}, 5)
+
+		It("Should send a lifecycle metrics event", func(done Done) {
+			exporter := metricexpo.MetricExporter{
+				Name:          "myName",
+				Namespace:     "myNamespace",
+				LifecycleName: "myLifecycle",
+				UID:           "uid",
+				Duration:      time.Second,
+			}
+
+			err := client.SendLifecycleMetrics(exporter)
+			Expect(err).ToNot(HaveOccurred())
 			close(done)
 		}, 5)
 	})

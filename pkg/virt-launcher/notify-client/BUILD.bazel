@@ -42,6 +42,7 @@ go_test(
         "//pkg/handler-launcher-com/notify/info:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",
+        "//pkg/virt-launcher/metric-store:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/util:go_default_library",

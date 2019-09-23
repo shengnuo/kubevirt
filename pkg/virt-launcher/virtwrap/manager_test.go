@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	metricstore "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -75,6 +76,7 @@ var _ = Describe("Manager", func() {
 		}
 		cloudinit.SetLocalDataOwner(owner.Username)
 		cloudinit.SetIsoCreationFunction(isoCreationFunc)
+		metricstore.InitMetricStore("foo", "bar", "uid")
 	})
 
 	BeforeEach(func() {

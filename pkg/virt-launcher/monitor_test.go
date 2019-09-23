@@ -21,6 +21,7 @@ package virtlauncher
 
 import (
 	"flag"
+	metricstore "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -72,6 +73,7 @@ var _ = Describe("VirtLauncher", func() {
 		Expect(currentPid).ToNot(Equal(0))
 
 		processStarted = true
+		metricstore.InitMetricStore("foo", "bar", "uid")
 	}
 
 	StopProcess := func() {

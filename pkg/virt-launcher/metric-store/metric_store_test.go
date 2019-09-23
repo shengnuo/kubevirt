@@ -1,16 +1,16 @@
 package metricstore
 
 import (
-	"time"
 	"container/list"
 	"math/rand"
-	"sync"
 	"strconv"
+	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store/metric-expo"
 
+	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store/metric-expo"
 )
 
 var _ = Describe("lifecycleDuration", func() {
@@ -41,9 +41,9 @@ var _ = Describe("lifecycleDuration", func() {
 	})
 })
 
-type dummyNotifier struct {}
+type dummyNotifier struct{}
 
-func(n *dummyNotifier) SendLifecycleMetrics(exporter metricexpo.MetricExporter) error {
+func (n *dummyNotifier) SendLifecycleMetrics(exporter metricexpo.MetricExporter) error {
 	return nil
 }
 
@@ -52,12 +52,12 @@ var _ = Describe("metricStore", func() {
 	var (
 		ms *metricStore
 	)
-	
+
 	BeforeEach(func() {
 		ms = &metricStore{
-			namespace: "namespace",
-			name: "name",
-			uid: "uid",
+			namespace:          "namespace",
+			name:               "name",
+			uid:                "uid",
 			pendingLifecycles:  list.New(),
 			lifecycleDurations: make(map[string]*lifecycleDuration),
 			myNotifier:         nil,
@@ -67,7 +67,7 @@ var _ = Describe("metricStore", func() {
 	Describe("Basic functionalities", func() {
 
 		Context("newTimestamp", func() {
-			It("Should create newTimestamp", func(){
+			It("Should create newTimestamp", func() {
 				Expect(ms.newTimestamp("foo")).To(Succeed())
 				Expect(ms.lifecycleDurations["foo"].startTime).ToNot(BeZero())
 				Expect(ms.lifecycleDurations["foo"].finishTime).To(BeZero())
@@ -79,7 +79,7 @@ var _ = Describe("metricStore", func() {
 				ms.newTimestamp("foo")
 				Expect(ms.finishTimestamp("foo")).To(Succeed())
 				Expect(ms.lifecycleDurations["foo"].finishTime).ToNot(BeZero())
-				
+
 			})
 
 			It("Should throw an error if starttime is not found", func() {
@@ -101,7 +101,7 @@ var _ = Describe("metricStore", func() {
 				Expect(ms.lifecycleDurations).NotTo(HaveKey("foo"))
 			})
 
-			It("Should release timestamps in pending after updating a Notifier", func () {
+			It("Should release timestamps in pending after updating a Notifier", func() {
 				ms.newTimestamp("foo")
 				ms.newTimestamp("bar")
 				ms.finishTimestamp("foo")
@@ -115,7 +115,7 @@ var _ = Describe("metricStore", func() {
 			})
 
 		})
-		
+
 	})
 
 	Describe("Concurrency handling", func() {
@@ -133,7 +133,7 @@ var _ = Describe("metricStore", func() {
 					if t == notiferUpdater {
 						ms.updateNotifier(&dummyNotifier{})
 					}
-					delay := rand.Float64() * 1000 + 500
+					delay := rand.Float64()*1000 + 500
 					time.Sleep(time.Duration(delay) * time.Millisecond)
 					ms.finishTimestamp(name)
 				}(t, notiferUpdater)

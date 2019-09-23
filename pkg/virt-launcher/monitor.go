@@ -229,7 +229,7 @@ func (mon *monitor) refresh() {
 }
 
 func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan struct{}) {
-	defer metricstore.FinishTimestamp("shutdown/monitorStopDuration")
+	defer metricstore.FinishTimestamp(metricstore.DESTROY_StopMonitor)
 
 	// random value, no real rationale
 	rate := 1 * time.Second
@@ -255,8 +255,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 				continue
 			}
 
-			metricstore.NewTimestamp("shutdown/monitorStopDuration")
-			log.Log.Info("monitor receives signalStopChan")
+			metricstore.NewTimestamp(metricstore.DESTROY_StopMonitor)
 			err := GracefulShutdownTriggerInitiate(mon.gracefulShutdownTriggerFile)
 			if err != nil {
 				log.Log.Reason(err).Errorf("Error detected attempting to initialize graceful shutdown using trigger file %s.", mon.gracefulShutdownTriggerFile)

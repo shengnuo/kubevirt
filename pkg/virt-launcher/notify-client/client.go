@@ -163,10 +163,6 @@ func newWatchEventError(err error) watch.Event {
 }
 
 func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event, interfaceStatus *[]api.InterfaceStatus) {
-
-	metricstore.NewTimestamp("eventCallback")
-	defer metricstore.FinishTimestamp("eventCallback")
-
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -239,6 +235,9 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 }
 
 func (n *Notifier) StartDomainNotifier(domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) error {
+	metricstore.NewTimestamp(metricstore.INIT_CreateDomainNotifier)
+	defer metricstore.FinishTimestamp(metricstore.INIT_CreateDomainNotifier)
+
 	eventChan := make(chan libvirtEvent, 10)
 	agentUpdateChan := make(chan agentpoller.AgentUpdateEvent, 10)
 

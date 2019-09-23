@@ -779,7 +779,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		return err
 	} else if gracefulShutdown && vmi.IsRunning() {
 		if domainAlive {
-			log.Log.Info("Shutting down due to graceful shutdown signal.")
+			log.Log.Object(vmi).V(3).Info("Shutting down due to graceful shutdown signal.")
 			shouldShutdown = true
 		} else {
 			shouldDelete = true
@@ -792,12 +792,12 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		case domainAlive:
 			// The VirtualMachineInstance is deleted on the cluster, and domain is alive,
 			// then shut down the domain.
-			log.Log.Info("Shutting down domain for deleted VirtualMachineInstance object.")
+			log.Log.Object(vmi).V(3).Info("Shutting down domain for deleted VirtualMachineInstance object.")
 			shouldShutdown = true
 		case domainExists:
 			// The VirtualMachineInstance is deleted on the cluster, and domain is not alive
 			// then delete the domain.
-			log.Log.Info("Shutting down domain for deleted VirtualMachineInstance object.")
+			log.Log.Object(vmi).V(3).Info("Shutting down domain for deleted VirtualMachineInstance object.")
 			shouldDelete = true
 		default:
 			// If neither the domain nor the vmi object exist locally,
@@ -810,10 +810,10 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	if vmiExists && vmi.ObjectMeta.DeletionTimestamp != nil {
 		switch {
 		case domainAlive:
-			log.Log.Info("Shutting down domain for VirtualMachineInstance with deletion timestamp.")
+			log.Log.Object(vmi).V(3).Info("Shutting down domain for VirtualMachineInstance with deletion timestamp.")
 			shouldShutdown = true
 		case domainExists:
-			log.Log.V(3).Info("Deleting domain for VirtualMachineInstance with deletion timestamp.")
+			log.Log.Object(vmi).V(3).Info("Deleting domain for VirtualMachineInstance with deletion timestamp.")
 			shouldDelete = true
 		default:
 			shouldCleanUp = true
@@ -823,7 +823,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	// Determine if domain needs to be deleted as a result of VirtualMachineInstance
 	// shutting down naturally (guest internal invoked shutdown)
 	if domainExists && vmiExists && vmi.IsFinal() {
-		log.Log.Info("Removing domain and ephemeral data for finalized vmi.")
+		log.Log.Object(vmi).V(3).Info("Removing domain and ephemeral data for finalized vmi.")
 		shouldDelete = true
 	}
 
@@ -872,13 +872,13 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	case forceIgnoreSync:
 		log.Log.Object(vmi).V(3).Info("No update processing required: forced ignore")
 	case shouldShutdown:
-		log.Log.Info("Processing shutdown.")
+		log.Log.Object(vmi).V(3).Info("Processing shutdown.")
 		syncErr = d.processVmShutdown(vmi, domain)
 	case shouldDelete:
-		log.Log.Info("Processing deletion.")
+		log.Log.Object(vmi).V(3).Info("Processing deletion.")
 		syncErr = d.processVmDelete(vmi, domain)
 	case shouldCleanUp:
-		log.Log.Info("Processing local ephemeral data cleanup for shutdown domain.")
+		log.Log.Object(vmi).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
 		syncErr = d.processVmCleanup(vmi)
 	case shouldUpdate:
 		log.Log.Object(vmi).V(3).Info("Processing vmi update")

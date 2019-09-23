@@ -190,7 +190,7 @@ func (l *Launcher) KillVirtualMachine(ctx context.Context, request *cmdv1.VMIReq
 
 func (l *Launcher) ShutdownVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	metricstore.NewTimestamp("shutdown")
+	metricstore.NewTimestamp(metricstore.DESTROY)
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -312,12 +312,12 @@ func RunServer(socketPath string,
 	done := make(chan struct{})
 
 	go func() {
-		defer metricstore.FinishTimestamp("shutdown/serverStopDuration")
+		defer metricstore.FinishTimestamp(metricstore.DESTROY_StopServer)
 
 		select {
 		case <-stopChan:
 			log.Log.Info("stopping cmd server")
-			metricstore.NewTimestamp("shutdown/serverStopDuration")
+			metricstore.NewTimestamp(metricstore.DESTROY_StopServer)
 			stopped := make(chan struct{})
 			go func() {
 				grpcServer.Stop()

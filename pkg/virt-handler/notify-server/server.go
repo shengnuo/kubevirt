@@ -68,7 +68,6 @@ func (n *Notify) HandleLifecycleMetricEvent(ctx context.Context, request *notify
 			return response, nil
 		}
 		response.Message = fmt.Sprintf("name: %s, ns: %s, lifecyclename: %s, duration: %s", exporter.Name, exporter.Namespace, exporter.LifecycleName, exporter.Duration)
-		log.Log.Infof("%s", response.Message)
 		prometheus.Update(exporter)
 	} else {
 		log.Log.Errorf("received zero length metric json")

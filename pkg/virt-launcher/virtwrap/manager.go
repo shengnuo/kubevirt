@@ -940,27 +940,27 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// Set defaults which are not coming from the cluster
 	api.SetObjectDefaults_Domain(domain)
 
-	metricstore.NewTimestamp("init/LookupDomainByName")
+	metricstore.NewTimestamp(metricstore.INIT_Libvirt_LookUpDomainByName)
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
-	metricstore.FinishTimestamp("init/LookupDomainByName")
+	metricstore.FinishTimestamp(metricstore.INIT_Libvirt_LookUpDomainByName)
 
 	newDomain := false
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
 			newDomain = true
-			metricstore.NewTimestamp("init/preStartHook")
+			metricstore.NewTimestamp(metricstore.INIT_Libvirt_PreStartHook)
 			domain, err = l.preStartHook(vmi, domain)
-			metricstore.FinishTimestamp("init/preStartHook")
+			metricstore.FinishTimestamp(metricstore.INIT_Libvirt_PreStartHook)
 
 			if err != nil {
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err
 			}
 
-			metricstore.NewTimestamp("init/setDomainSpecWithHooks")
+			metricstore.NewTimestamp(metricstore.INIT_Libvirt_SetDomainSpecWithHooks)
 			dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
-			metricstore.FinishTimestamp("init/setDomainSpecWithHooks")
+			metricstore.FinishTimestamp(metricstore.INIT_Libvirt_SetDomainSpecWithHooks)
 
 			if err != nil {
 				return nil, err
@@ -991,9 +991,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
-		metricstore.NewTimestamp("init/dom.Create")
+		metricstore.NewTimestamp(metricstore.INIT_Libvirt_StartDomain)
 		err = dom.Create()
-		metricstore.FinishTimestamp("init/dom.Create")
+		metricstore.FinishTimestamp(metricstore.INIT_Libvirt_StartDomain)
 
 		if err != nil {
 			logger.Reason(err).Error("Starting the VirtualMachineInstance failed.")
@@ -1094,9 +1094,9 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 		}
 
 		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
-			metricstore.NewTimestamp("shutdown/ShutdownFlags")
+			metricstore.NewTimestamp(metricstore.DESTROY_Libvirt_shutDownFlags)
 			err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
-			metricstore.FinishTimestamp("shutdown/ShutdownFlags")
+			metricstore.FinishTimestamp(metricstore.DESTROY_Libvirt_shutDownFlags)
 
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
@@ -1141,9 +1141,10 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED || domState == libvirt.DOMAIN_SHUTDOWN {
-		metricstore.NewTimestamp("shutdown/dom.DestroyFlags")
+		metricstore.NewTimestamp(metricstore.DESTROY_Libvirt_destroyFlags)
 		err = dom.DestroyFlags(libvirt.DOMAIN_DESTROY_GRACEFUL)
-		metricstore.FinishTimestamp("shutdown/dom.DestroyFlags")
+		metricstore.FinishTimestamp(metricstore.DESTROY_Libvirt_destroyFlags)
+
 		if err != nil {
 			if domainerrors.IsNotFound(err) {
 				return nil
@@ -1173,9 +1174,9 @@ func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer dom.Free()
 
-	metricstore.NewTimestamp("shutdown/dom.UndefineFlags")
+	metricstore.NewTimestamp(metricstore.DESTROY_Libvirt_undefineFlags)
 	err = dom.UndefineFlags(libvirt.DOMAIN_UNDEFINE_NVRAM)
-	metricstore.FinishTimestamp("shutdown/dom.UndefineFlags")
+	metricstore.FinishTimestamp(metricstore.DESTROY_Libvirt_undefineFlags)
 
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Undefining the domain failed.")

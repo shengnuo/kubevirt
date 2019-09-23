@@ -7,8 +7,6 @@ import (
 	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store/metric-expo"
 
 	"github.com/prometheus/client_golang/prometheus"
-
-	"kubevirt.io/client-go/log"
 )
 
 var (
@@ -32,7 +30,6 @@ var (
 )
 
 func Update(exporter *metricexpo.MetricExporter) {
-	log.Log.Info("pushing prometheus metrics")
 	durationSecond := float64(exporter.Duration) / float64(time.Second)
 
 	durationSummary.With(

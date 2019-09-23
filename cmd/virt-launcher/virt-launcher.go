@@ -29,7 +29,7 @@ import (
 	"syscall"
 	"time"
 
-	tracestore "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store"
+	metricstore "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store"
 
 	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
@@ -131,9 +131,9 @@ func startDomainEventMonitoring(notifier *notifyclient.Notifier, virtShareDir st
 		}
 	}()
 
-	tracestore.NewStage("init/StartDomainNotifier")
+	metricstore.NewTimestamp("init/StartDomainNotifier")
 	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmiUID, qemuAgentPollerInterval)
-	tracestore.FinishStage("init/StartDomainNotifier")
+	metricstore.FinishTimestamp("init/StartDomainNotifier")
 	if err != nil {
 		panic(err)
 	}
@@ -330,9 +330,9 @@ func main() {
 
 	log.InitializeLogging("virt-launcher")
 
-	tracestore.InitTraceStore(*namespace, *name, *uid)
-	tracestore.NewStage("init")
-	defer tracestore.FinishStage("shutdown")
+	metricstore.InitMetricStore(*namespace, *name, *uid)
+	metricstore.NewTimestamp("init")
+	defer metricstore.FinishTimestamp("shutdown")
 
 	if !*noFork {
 		exitCode, err := ForkAndMonitor("qemu-system", *ephemeralDiskDir, *containerDiskDir)
@@ -373,22 +373,22 @@ func main() {
 	}
 	util.StartVirtlog(stopChan)
 
-	tracestore.NewStage("init/createLibvirtConnection")
+	metricstore.NewTimestamp("init/createLibvirtConnection")
 	domainConn := createLibvirtConnection()
-	tracestore.FinishStage("init/createLibvirtConnection")
+	metricstore.FinishTimestamp("init/createLibvirtConnection")
 
 	defer domainConn.Close()
 
-	tracestore.NewStage("init/NewNotifier")
+	metricstore.NewTimestamp("init/NewNotifier")
 	notifier, err := notifyclient.NewNotifier(*virtShareDir)
-	tracestore.FinishStage("init/NewNotifier")
+	metricstore.FinishTimestamp("init/NewNotifier")
 
 	if err != nil {
 		panic(err)
 	}
 	defer notifier.Close()
 
-	tracestore.UpdateNotifier(notifier)
+	metricstore.UpdateNotifier(notifier)
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration)
 	if err != nil {
@@ -398,11 +398,11 @@ func main() {
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
-	tracestore.NewStage("init/cmdServerStart")
+	metricstore.NewTimestamp("init/cmdServerStart")
 	options := cmdserver.NewServerOptions(*useEmulation)
 	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
 	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
-	tracestore.FinishStage("init/cmdServerStart")
+	metricstore.FinishTimestamp("init/cmdServerStart")
 
 	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
 		*namespace,
@@ -437,7 +437,7 @@ func main() {
 	signalStopChan := make(chan struct{})
 	go func() {
 		s := <-c
-		tracestore.NewStage("shutdown")
+		metricstore.NewTimestamp("shutdown")
 		log.Log.Infof("Received signal %s", s.String())
 		close(signalStopChan)
 	}()
@@ -447,11 +447,11 @@ func main() {
 	// managing virtual machines.
 	markReady(*readinessFile)
 
-	tracestore.NewStage("init/waitForDomainUUID")
+	metricstore.NewTimestamp("init/waitForDomainUUID")
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
-	tracestore.FinishStage("init/waitForDomainUUID")
+	metricstore.FinishTimestamp("init/waitForDomainUUID")
 	if domain != nil {
-		tracestore.FinishStage("init")
+		metricstore.FinishTimestamp("init")
 
 		mon := virtlauncher.NewProcessMonitor(domain.Spec.UUID,
 			gracefulShutdownTriggerFile,

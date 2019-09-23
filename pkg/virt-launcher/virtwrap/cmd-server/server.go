@@ -33,8 +33,9 @@ import (
 	"kubevirt.io/client-go/log"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
+	metricstore "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	tracestore "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 )
@@ -189,7 +190,7 @@ func (l *Launcher) KillVirtualMachine(ctx context.Context, request *cmdv1.VMIReq
 
 func (l *Launcher) ShutdownVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	tracestore.NewStage("shutdown")
+	metricstore.NewTimestamp("shutdown")
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -311,12 +312,12 @@ func RunServer(socketPath string,
 	done := make(chan struct{})
 
 	go func() {
-		defer tracestore.FinishStage("shutdown/serverStopDuration")
+		defer metricstore.FinishTimestamp("shutdown/serverStopDuration")
 
 		select {
 		case <-stopChan:
 			log.Log.Info("stopping cmd server")
-			tracestore.NewStage("shutdown/serverStopDuration")
+			metricstore.NewTimestamp("shutdown/serverStopDuration")
 			stopped := make(chan struct{})
 			go func() {
 				grpcServer.Stop()

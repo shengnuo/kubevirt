@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	tracestore "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store"
+	metricstore "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -229,7 +229,7 @@ func (mon *monitor) refresh() {
 }
 
 func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan struct{}) {
-	defer tracestore.FinishStage("shutdown/monitorStopDuration")
+	defer metricstore.FinishTimestamp("shutdown/monitorStopDuration")
 
 	// random value, no real rationale
 	rate := 1 * time.Second
@@ -255,7 +255,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 				continue
 			}
 
-			tracestore.NewStage("shutdown/monitorStopDuration")
+			metricstore.NewTimestamp("shutdown/monitorStopDuration")
 			log.Log.Info("monitor receives signalStopChan")
 			err := GracefulShutdownTriggerInitiate(mon.gracefulShutdownTriggerFile)
 			if err != nil {

@@ -37,8 +37,8 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 
-	aggregator "kubevirt.io/kubevirt/pkg/monitoring/lifecycle_metrics/aggregator"
-	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store/metric-expo"
+	prometheus "kubevirt.io/kubevirt/pkg/monitoring/lifecycle_metrics/prometheus"
+	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store/metric-expo"
 
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
@@ -46,10 +46,9 @@ import (
 )
 
 type Notify struct {
-	EventChan        chan watch.Event
-	recorder         record.EventRecorder
-	vmiStore         cache.Store
-	metricAggregator *aggregator.LifecycleMetricsAggregator
+	EventChan chan watch.Event
+	recorder  record.EventRecorder
+	vmiStore  cache.Store
 }
 
 func (n *Notify) HandleLifecycleMetricEvent(ctx context.Context, request *notifyv1.LifecycleMetricRequest) (*notifyv1.Response, error) {
@@ -68,9 +67,9 @@ func (n *Notify) HandleLifecycleMetricEvent(ctx context.Context, request *notify
 			response.Message = err.Error()
 			return response, nil
 		}
-		response.Message = fmt.Sprintf("name: %s, ns: %s, stageName: %s, duration: %s", exporter.Name, exporter.Namespace, exporter.StageName, exporter.Duration)
+		response.Message = fmt.Sprintf("name: %s, ns: %s, lifecyclename: %s, duration: %s", exporter.Name, exporter.Namespace, exporter.LifecycleName, exporter.Duration)
 		log.Log.Infof("%s", response.Message)
-		n.metricAggregator.UpdateAggregator(exporter)
+		prometheus.Update(exporter)
 	} else {
 		log.Log.Errorf("received zero length metric json")
 	}
@@ -153,10 +152,9 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	notifyServer := &Notify{
-		EventChan:        c,
-		recorder:         recorder,
-		vmiStore:         vmiStore,
-		metricAggregator: aggregator.GetAggregator(),
+		EventChan: c,
+		recorder:  recorder,
+		vmiStore:  vmiStore,
 	}
 	registerInfoServer(grpcServer)
 

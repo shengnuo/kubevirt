@@ -195,7 +195,7 @@ var _ = Describe("Notify", func() {
 			})
 	})
 
-	Describe("K8s Events", func() {
+	Describe("Other Events", func() {
 		var err error
 		var shareDir string
 		var stop chan struct{}

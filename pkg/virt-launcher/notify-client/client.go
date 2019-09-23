@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"time"
 
-	tracestore "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store"
-
 	"github.com/libvirt/libvirt-go"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -24,7 +22,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
-	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store/metric-expo"
+	metricstore "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store"
+	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store/metric-expo"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -165,8 +164,8 @@ func newWatchEventError(err error) watch.Event {
 
 func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event, interfaceStatus *[]api.InterfaceStatus) {
 
-	tracestore.NewStage("eventCallback")
-	defer tracestore.FinishStage("eventCallback")
+	metricstore.NewTimestamp("eventCallback")
+	defer metricstore.FinishTimestamp("eventCallback")
 
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {

@@ -58,7 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/ignition"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 
-	tracestore "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store"
+	metricstore "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -940,27 +940,27 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// Set defaults which are not coming from the cluster
 	api.SetObjectDefaults_Domain(domain)
 
-	tracestore.NewStage("init/LookupDomainByName")
+	metricstore.NewTimestamp("init/LookupDomainByName")
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
-	tracestore.FinishStage("init/LookupDomainByName")
+	metricstore.FinishTimestamp("init/LookupDomainByName")
 
 	newDomain := false
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
 			newDomain = true
-			tracestore.NewStage("init/preStartHook")
+			metricstore.NewTimestamp("init/preStartHook")
 			domain, err = l.preStartHook(vmi, domain)
-			tracestore.FinishStage("init/preStartHook")
+			metricstore.FinishTimestamp("init/preStartHook")
 
 			if err != nil {
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err
 			}
 
-			tracestore.NewStage("init/setDomainSpecWithHooks")
+			metricstore.NewTimestamp("init/setDomainSpecWithHooks")
 			dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
-			tracestore.FinishStage("init/setDomainSpecWithHooks")
+			metricstore.FinishTimestamp("init/setDomainSpecWithHooks")
 
 			if err != nil {
 				return nil, err
@@ -991,9 +991,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
-		tracestore.NewStage("init/dom.Create")
+		metricstore.NewTimestamp("init/dom.Create")
 		err = dom.Create()
-		tracestore.FinishStage("init/dom.Create")
+		metricstore.FinishTimestamp("init/dom.Create")
 
 		if err != nil {
 			logger.Reason(err).Error("Starting the VirtualMachineInstance failed.")
@@ -1094,9 +1094,9 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 		}
 
 		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
-			tracestore.NewStage("shutdown/ShutdownFlags")
+			metricstore.NewTimestamp("shutdown/ShutdownFlags")
 			err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
-			tracestore.FinishStage("shutdown/ShutdownFlags")
+			metricstore.FinishTimestamp("shutdown/ShutdownFlags")
 
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
@@ -1141,7 +1141,9 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED || domState == libvirt.DOMAIN_SHUTDOWN {
+		metricstore.NewTimestamp("shutdown/dom.DestroyFlags")
 		err = dom.DestroyFlags(libvirt.DOMAIN_DESTROY_GRACEFUL)
+		metricstore.FinishTimestamp("shutdown/dom.DestroyFlags")
 		if err != nil {
 			if domainerrors.IsNotFound(err) {
 				return nil
@@ -1171,9 +1173,9 @@ func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer dom.Free()
 
-	tracestore.NewStage("shutdown/dom.UndefineFlags")
+	metricstore.NewTimestamp("shutdown/dom.UndefineFlags")
 	err = dom.UndefineFlags(libvirt.DOMAIN_UNDEFINE_NVRAM)
-	tracestore.FinishStage("shutdown/dom.UndefineFlags")
+	metricstore.FinishTimestamp("shutdown/dom.UndefineFlags")
 
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Undefining the domain failed.")

@@ -1,20 +1,21 @@
 package prometheus
 
 import (
+	"sync"
 	"time"
 
-	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/trace-store/metric-expo"
+	metricexpo "kubevirt.io/kubevirt/pkg/virt-launcher/metric-store/metric-expo"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"kubevirt.io/client-go/log"
-	// aggregator "kubevirt.io/kubevirt/pkg/monitoring/lifecycle_metrics/aggregator"
 )
 
 var (
 	durationSummary = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
-			Subsystem: "lifecycle_metrics",
-			Name:      "kubevirt_lifecycle_duration_summary",
+			Subsystem: "kubevirt",
+			Name:      "lifecycle_duration_summary",
 			Help:      "Duration summary of kubevirt lifecycle stages",
 		},
 		[]string{"stage"},
@@ -22,8 +23,8 @@ var (
 
 	durationGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: "lifecycle_metrics",
-			Name:      "kubevirt_lifecycle_duration_gauge",
+			Subsystem: "kubevirt",
+			Name:      "lifecycle_duration_gauge",
 			Help:      "Duration of kubevirt lifecycle stages",
 		},
 		[]string{"namespace", "name", "stage", "uid"},
@@ -36,23 +37,25 @@ func Update(exporter *metricexpo.MetricExporter) {
 
 	durationSummary.With(
 		prometheus.Labels{
-			"stage": exporter.StageName,
+			"stage": exporter.LifecycleName,
 		},
 	).Observe(durationSecond)
 
-	// durationGauge._metrics.clear()
 	durationGauge.With(
 		prometheus.Labels{
 			"namespace": exporter.Namespace,
 			"name":      exporter.Name,
-			"stage":     exporter.StageName,
+			"stage":     exporter.LifecycleName,
 			"uid":       exporter.UID,
 		},
-	).Add(durationSecond)
+	).Set(durationSecond)
 }
 
+var once sync.Once
+
 func init() {
-	log.Log.Info("registering lifecycle collector")
-	prometheus.MustRegister(durationGauge)
-	prometheus.MustRegister(durationSummary)
+	once.Do(func() {
+		prometheus.MustRegister(durationGauge)
+		prometheus.MustRegister(durationSummary)
+	})
 }

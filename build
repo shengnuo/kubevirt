@@ -1,0 +1,55 @@
+docker pull localhost:32774/kubevirt/cirros-container-disk-demo:devel_alt
+docker pull localhost:32774/kubevirt/virt-operator:devel_alt 
+docker pull localhost:32774/kubevirt/vm-killer:devel_alt 
+docker pull localhost:32774/kubevirt/example-hook-sidecar:devel_alt 
+docker pull localhost:32774/kubevirt/disks-images-provider:devel_alt 
+docker pull localhost:32774/kubevirt/cdi-http-import-server:devel_alt 
+docker pull localhost:32774/kubevirt/virt-controller:devel_alt 
+docker pull localhost:32774/kubevirt/example-cloudinit-hook-sidecar:devel_alt 
+docker pull localhost:32774/kubevirt/fedora30-cloud-container-disk-demo:devel_alt 
+docker pull localhost:32774/kubevirt/subresource-access-test:devel_alt 
+docker pull localhost:32774/kubevirt/fedora-cloud-container-disk-demo:devel_alt 
+docker pull localhost:32774/kubevirt/alpine-container-disk-demo:devel_alt 
+docker pull localhost:32774/kubevirt/container-disk-v1alpha:devel_alt 
+docker pull localhost:32774/kubevirt/winrmcli:devel_alt 
+docker pull localhost:32774/kubevirt/virtio-container-disk:devel_alt 
+docker pull localhost:32774/kubevirt/virt-api:devel_alt 
+
+
+
+docker pull localhost:32774/kubevirt/virt-handler:devel_alt 
+docker pull localhost:32774/kubevirt/virt-launcher:devel_alt 
+
+make cluster-sync
+docker pull localhost:32774/kubevirt/virt-launcher:devel_alt 
+docker tag localhost:32774/kubevirt/virt-launcher:devel_alt quay.io/slin/virt-launcher:dev
+docker push quay.io/slin/virt-launcher:dev
+
+docker pull localhost:32774/kubevirt/virt-handler:devel_alt 
+docker tag localhost:32774/kubevirt/virt-handler:devel_alt quay.io/slin/virt-handler:dev
+docker push quay.io/slin/virt-handler:dev
+
+
+sed -i 's/registry:5000\/kubevirt/quay.io\/slin/g' /home/slin/gitlab/src/github/kubevirt/_out/manifests/release/kubevirt.yaml
+sed -i 's/IfNotPresent/Always/g' /home/slin/gitlab/src/github/kubevirt/_out/manifests/release/kubevirt.yaml
+sed -i -E 's/@sha256:[a-zA-Z0-9].*/:dev/g' /home/slin/gitlab/src/github/kubevirt/_out/manifests/release/kubevirt.yaml
+
+kubectl delete vmi testvm-centos
+kubectl delete -f /home/slin/gitlab/src/github/kubevirt/_out/manifests/release/kubevirt.yaml
+~/kill-ns kubevirt
+
+docker image rm localhost:32774/kubevirt/virt-launcher:devel_alt
+docker image rm localhost:32774/kubevirt/virt-handler:devel_alt
+docker image rm quay.io/slin/virt-launcher:dev
+docker image rm quay.io/slin/virt-handler:dev
+
+kubectl apply -f /home/slin/gitlab/src/github/kubevirt/_out/manifests/release/kubevirt.yaml
+kubectl get pods -n kubevirt --watch
+kubectl apply -f /home/slin/gitlab/src/sheng/kubevirt/cluster/nidavellir-examples/vmi-centos.yaml
+
+curl -k https://`kubectl get svc -n kubevirt -o wide | grep kubevirt-prometheus-metrics | awk '{print $3}'`:443/metrics 2>/dev/null | grep lifecycle
+kubectl logs -l kubevirt.io=virt-handler -n kubevirt 
+kubectl logs `kubectl get pods | grep virt-launcher | awk '{print $1}'` -f
+
+
+docker container ls -a | grep "dnsmasq" | awk '{print $1}' | xargs docker container stop

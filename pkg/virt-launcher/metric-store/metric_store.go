@@ -24,11 +24,10 @@ func startTimestamp(startTime time.Time) *lifecycleDuration {
 	}
 }
 
-func (sd *lifecycleDuration) finishTimestamp(finishTime time.Time) error {
+func (sd *lifecycleDuration) finishTimestamp(finishTime time.Time) {
 	if sd.finishTime.IsZero() {
 		sd.finishTime = finishTime
 	}
-	return nil
 }
 
 type metricStore struct {
@@ -41,7 +40,7 @@ type metricStore struct {
 	myNotifier         notifier
 }
 
-func (ms *metricStore) newTimestamp(lifecycleName string) error {
+func (ms *metricStore) newTimestamp(lifecycleName string) {
 	startTime := time.Now()
 	ms.lock.Lock()
 	defer ms.lock.Unlock()
@@ -49,7 +48,6 @@ func (ms *metricStore) newTimestamp(lifecycleName string) error {
 	if _, exists := ms.lifecycleDurations[lifecycleName]; !exists {
 		ms.lifecycleDurations[lifecycleName] = startTimestamp(startTime)
 	}
-	return nil
 }
 
 func (ms *metricStore) reportLifecycle(lifecycleName string) {
@@ -85,11 +83,7 @@ func (ms *metricStore) finishTimestamp(lifecycleName string) error {
 	defer ms.lock.Unlock()
 
 	if v, exists := ms.lifecycleDurations[lifecycleName]; exists {
-
-		e := v.finishTimestamp(finishTime)
-		if e != nil {
-			return e
-		}
+		v.finishTimestamp(finishTime)
 		if ms.myNotifier != nil {
 			ms.reportLifecycle(lifecycleName)
 		} else {
@@ -144,8 +138,8 @@ func InitMetricStore(namespace string, name string, uid string) {
 	})
 }
 
-func NewTimestamp(lifecycleName string) error {
-	return ms.newTimestamp(lifecycleName)
+func NewTimestamp(lifecycleName string) {
+	ms.newTimestamp(lifecycleName)
 }
 
 func FinishTimestamp(lifecycleName string) error {
